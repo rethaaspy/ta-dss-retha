@@ -21,8 +21,8 @@ dan informasi serangan hama sebagai pendukung keputusan.
 def load_data():
     try:
         # Coba load data aktual jika ada
-        if os.path.exists('streamlit/hasil_dss_gabungan_label_streamlit.csv'):
-            dss = pd.read_csv('streamlit/hasil_dss_gabungan_label_streamlit.csv')
+        if os.path.exists('hasil_dss_gabungan_label_streamlit.csv'):
+            dss = pd.read_csv('hasil_dss_gabungan_label_streamlit.csv')
             dss['Tanggal'] = pd.to_datetime(dss['Tanggal'])
             
             # Filter supaya hanya sampai 30 April 2025
@@ -76,8 +76,8 @@ def load_data():
             dss = pd.DataFrame(dss_data)
 
         # Load data harga beras
-        if os.path.exists('streamlit/harga_beras_forecast.xlsx'):
-            harga = pd.read_excel('streamlit/harga_beras_forecast.xlsx')
+        if os.path.exists('harga_beras_forecast.xlsx'):
+            harga = pd.read_excel('harga_beras_forecast.xlsx')
             harga['Tanggal'] = pd.to_datetime(harga['Tanggal'])
             harga = harga[harga['Tanggal'] <= pd.to_datetime('2025-04-30')]  # Filter juga
         else:
@@ -93,8 +93,8 @@ def load_data():
             harga = pd.DataFrame(prices)
 
         # Load data serangan hama
-        if os.path.exists('streamlit/dataset_hama.xlsx'):
-            hama = pd.read_excel('streamlit/dataset_hama.xlsx')
+        if os.path.exists('dataset_hama.xlsx'):
+            hama = pd.read_excel('dataset_hama.xlsx')
         else:
             years = ['2020/2021', '2021/2022', '2022/2023', '2023/2024']
             pests = ['Penggerek Batang', 'Wereng Batang Cokelat', 'Tikus', 'Blas', 'Hawar Daun Bakteri', 'Tungro']
@@ -214,7 +214,7 @@ with st.container():
 with st.container():
     st.subheader("🌧️ Prediksi Curah Hujan Harian (Selama 3 Bulan Setelah Tanam)")
 
-    df_prediksi_cuaca = pd.read_csv('streamlit/hasil_rolling_forecast_2024_2025.csv')
+    df_prediksi_cuaca = pd.read_csv('hasil_rolling_forecast_2024_2025.csv')
     df_prediksi_cuaca['Tanggal'] = pd.to_datetime(df_prediksi_cuaca['Tanggal'])
 
     df_90hari = df_prediksi_cuaca[
