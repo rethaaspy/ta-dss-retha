@@ -25,7 +25,8 @@ def load_data():
             dss = pd.read_csv('streamlit/hasil_dss_gabungan_label_streamlit.csv', sep=';', encoding='utf-8')
             st.write(dss.head())
             st.write(dss.columns.tolist())
-            dss['Tanggal'] = pd.to_datetime(dss['Tanggal'])
+            
+            dss['Tanggal'] = pd.to_datetime(dss['Tanggal'], dayfirst=True)
             
             # Filter supaya hanya sampai 30 April 2025
             dss = dss[dss['Tanggal'] <= pd.to_datetime('2025-04-30')]
