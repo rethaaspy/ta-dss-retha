@@ -22,7 +22,7 @@ def load_data():
     try:
         # Coba load data aktual jika ada
         if os.path.exists('streamlit/hasil_dss_gabungan_label_streamlit.csv'):
-            dss = pd.read_csv('hasil_dss_gabungan_label_streamlit.csv', sep=';', encoding='utf-8')
+            dss = pd.read_csv('streamlit/hasil_dss_gabungan_label_streamlit.csv', sep=';', encoding='utf-8')
             st.write(dss.head())
             st.write(dss.columns.tolist())
             dss['Tanggal'] = pd.to_datetime(dss['Tanggal'])
