@@ -25,7 +25,24 @@ def load_data():
         if os.path.exists('hasil_dss_gabungan_label_streamlit.csv'):
             # Perhatikan pembacaan CSV dengan separator ';' 
             dss = pd.read_csv('hasil_dss_gabungan_label_streamlit.csv', sep=';')
-            dss['Tanggal'] = pd.to_datetime(dss['Tanggal'])
+            # Mengatasi berbagai format tanggal yang mungkin ada
+            try:
+                # Coba format dayfirst (format tanggal Indonesia DD/MM/YYYY)
+                dss['Tanggal'] = pd.to_datetime(dss['Tanggal'], dayfirst=True)
+            except:
+                try:
+                    # Coba format ISO
+                    dss['Tanggal'] = pd.to_datetime(dss['Tanggal'], format='ISO8601')
+                except:
+                    try:
+                        # Coba format mixed
+                        dss['Tanggal'] = pd.to_datetime(dss['Tanggal'], format='mixed')
+                    except Exception as e:
+                        st.error(f"Error saat parsing tanggal: {e}")
+                        # Gunakan pendekatan manual untuk format "DD/MM/YYYY"
+                        dss['Tanggal'] = dss['Tanggal'].apply(lambda x: pd.to_datetime(x.split('/')[2] + '-' + 
+                                                                                      x.split('/')[1] + '-' + 
+                                                                                      x.split('/')[0]))
             
             # Filter supaya hanya sampai 30 April 2025
             dss = dss[dss['Tanggal'] <= pd.to_datetime('2025-04-30')]
@@ -83,7 +100,22 @@ def load_data():
                     'tanggal': 'Tanggal',
                     'harga_prediksi': 'Prediksi Harga Beras (Rp/kg)'
                 })
-            harga['Tanggal'] = pd.to_datetime(harga['Tanggal'])
+            # Mengatasi berbagai format tanggal
+            try:
+                harga['Tanggal'] = pd.to_datetime(harga['Tanggal'], dayfirst=True)
+            except:
+                try:
+                    harga['Tanggal'] = pd.to_datetime(harga['Tanggal'], format='ISO8601')
+                except:
+                    try:
+                        harga['Tanggal'] = pd.to_datetime(harga['Tanggal'], format='mixed')
+                    except Exception as e:
+                        st.warning(f"Error pada format tanggal harga beras: {e}")
+                        # Gunakan pendekatan manual untuk format "DD/MM/YYYY"
+                        if harga['Tanggal'].dtype == 'object' and '/' in harga['Tanggal'].iloc[0]:
+                            harga['Tanggal'] = harga['Tanggal'].apply(lambda x: pd.to_datetime(x.split('/')[2] + '-' + 
+                                                                                          x.split('/')[1] + '-' + 
+                                                                                          x.split('/')[0]))
             harga = harga[harga['Tanggal'] <= pd.to_datetime('2025-04-30')]
         else:
             price_dates = pd.date_range(start='2024-05-01', end='2025-04-30')
@@ -220,7 +252,18 @@ with st.container():
     try:
         df_prediksi_cuaca = pd.read_csv('hasil_rolling_forecast_2024_2025.csv')
         if 'Tanggal' in df_prediksi_cuaca.columns:
-            df_prediksi_cuaca['Tanggal'] = pd.to_datetime(df_prediksi_cuaca['Tanggal'])
+            try:
+                df_prediksi_cuaca['Tanggal'] = pd.to_datetime(df_prediksi_cuaca['Tanggal'], dayfirst=True)
+            except:
+                try:
+                    df_prediksi_cuaca['Tanggal'] = pd.to_datetime(df_prediksi_cuaca['Tanggal'], format='mixed')
+                except Exception as e:
+                    st.warning(f"Error pada format tanggal prediksi cuaca: {e}")
+                    # Gunakan pendekatan manual
+                    if df_prediksi_cuaca['Tanggal'].dtype == 'object' and '/' in df_prediksi_cuaca['Tanggal'].iloc[0]:
+                        df_prediksi_cuaca['Tanggal'] = df_prediksi_cuaca['Tanggal'].apply(
+                            lambda x: pd.to_datetime(x.split('/')[2] + '-' + x.split('/')[1] + '-' + x.split('/')[0])
+                    )
         # Untuk keamanan, jika nama kolom berbeda
         elif df_prediksi_cuaca.columns[0].lower() in ['tanggal', 'date', 'datetime']:
             df_prediksi_cuaca = df_prediksi_cuaca.rename(columns={df_prediksi_cuaca.columns[0]: 'Tanggal'})
