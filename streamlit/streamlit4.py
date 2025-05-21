@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime, timedelta, date
 import os
 
@@ -21,31 +20,17 @@ dan informasi serangan hama sebagai pendukung keputusan.
 @st.cache_data
 def load_data():
     try:
-        # Coba load data DSS
-        if os.path.exists('hasil_dss_gabungan_label_streamlit.csv'):
-            # Perhatikan pembacaan CSV dengan separator ';' 
-            dss = pd.read_csv('hasil_dss_gabungan_label_streamlit.csv', sep=';')
-            # Mengatasi berbagai format tanggal yang mungkin ada
-            try:
-                # Coba format dayfirst (format tanggal Indonesia DD/MM/YYYY)
-                dss['Tanggal'] = pd.to_datetime(dss['Tanggal'], dayfirst=True)
-            except:
-                try:
-                    # Coba format ISO
-                    dss['Tanggal'] = pd.to_datetime(dss['Tanggal'], format='ISO8601')
-                except:
-                    try:
-                        # Coba format mixed
-                        dss['Tanggal'] = pd.to_datetime(dss['Tanggal'], format='mixed')
-                    except Exception as e:
-                        st.error(f"Error saat parsing tanggal: {e}")
-                        # Gunakan pendekatan manual untuk format "DD/MM/YYYY"
-                        dss['Tanggal'] = dss['Tanggal'].apply(lambda x: pd.to_datetime(x.split('/')[2] + '-' + 
-                                                                                      x.split('/')[1] + '-' + 
-                                                                                      x.split('/')[0]))
+        # Coba load data aktual jika ada
+        if os.path.exists('hasil_dss_forecast_2024_2025_dengan_label.csv'):
+            dss = pd.read_csv('hasil_dss_forecast_2024_2025_dengan_label.csv')
+            dss['Tanggal'] = pd.to_datetime(dss['Tanggal'])
             
             # Filter supaya hanya sampai 30 April 2025
             dss = dss[dss['Tanggal'] <= pd.to_datetime('2025-04-30')]
+            
+            # Rename kolom jika perlu (opsional)
+            if 'Label Sistem' in dss.columns and 'Label Sistem' not in dss.columns:
+                dss = dss.rename(columns={'Label Sistem': 'Label Sistem'})
         else:
             # Data sintetis jika file tidak ada
             date_range = pd.date_range(start='2024-05-01', end='2025-04-30')
@@ -86,37 +71,15 @@ def load_data():
                     'Total 5 Hari (mm)': total_5,
                     'Max Kering 15 Hari': max_dry,
                     'Total 30 Hari (mm)': total_30,
-                    'Label RBS': label
+                    'Label Sistem': label
                 })
             dss = pd.DataFrame(dss_data)
 
         # Load data harga beras
-        if os.path.exists('harga_beras_forecast.csv'):
-            # Perhatikan pembacaan CSV standar
-            harga = pd.read_csv('harga_beras_forecast.csv')
-            # Penyesuaian nama kolom berdasarkan data yang Anda miliki
-            if 'tanggal' in harga.columns and 'harga_prediksi' in harga.columns:
-                harga = harga.rename(columns={
-                    'tanggal': 'Tanggal',
-                    'harga_prediksi': 'Prediksi Harga Beras (Rp/kg)'
-                })
-            # Mengatasi berbagai format tanggal
-            try:
-                harga['Tanggal'] = pd.to_datetime(harga['Tanggal'], dayfirst=True)
-            except:
-                try:
-                    harga['Tanggal'] = pd.to_datetime(harga['Tanggal'], format='ISO8601')
-                except:
-                    try:
-                        harga['Tanggal'] = pd.to_datetime(harga['Tanggal'], format='mixed')
-                    except Exception as e:
-                        st.warning(f"Error pada format tanggal harga beras: {e}")
-                        # Gunakan pendekatan manual untuk format "DD/MM/YYYY"
-                        if harga['Tanggal'].dtype == 'object' and '/' in harga['Tanggal'].iloc[0]:
-                            harga['Tanggal'] = harga['Tanggal'].apply(lambda x: pd.to_datetime(x.split('/')[2] + '-' + 
-                                                                                          x.split('/')[1] + '-' + 
-                                                                                          x.split('/')[0]))
-            harga = harga[harga['Tanggal'] <= pd.to_datetime('2025-04-30')]
+        if os.path.exists('harga_beras_forecast.xlsx'):
+            harga = pd.read_excel('harga_beras_forecast.xlsx')
+            harga['Tanggal'] = pd.to_datetime(harga['Tanggal'])
+            harga = harga[harga['Tanggal'] <= pd.to_datetime('2025-04-30')]  # Filter juga
         else:
             price_dates = pd.date_range(start='2024-05-01', end='2025-04-30')
             prices = []
@@ -171,6 +134,9 @@ if dss.empty or 'Tanggal' not in dss.columns:
     st.error("Data DSS gagal dimuat. Cek kembali file CSV atau proses generasi data sintetis.")
     st.stop()
 
+import datetime as dt
+from dateutil.relativedelta import relativedelta
+
 # --- Sidebar: Pilih Tanggal Tanam ---
 st.sidebar.header("🗓️ Pilih Tanggal Tanam")
 
@@ -207,21 +173,20 @@ with st.container():
     st.subheader("📊 Rekomendasi Waktu Tanam")
     
     if not data_pilihan.empty:
-        status = data_pilihan['Label RBS'].values[0]
+        status = data_pilihan['Label Sistem'].values[0]
         total_5 = data_pilihan['Total 5 Hari (mm)'].values[0]
         total_30 = data_pilihan['Total 30 Hari (mm)'].values[0]
         max_dry = data_pilihan['Max Kering 15 Hari'].values[0]
 
         emoji_status = {'Hijau': '🌱', 'Kuning': '⚠️', 'Merah': '🔥'}
-        # Pastikan kunci dalam warna_status sesuai dengan nilai status (lowercase)
-        warna_status = {'Hijau': '#e0f7e9', 'Kuning': '#fff9e0', 'Merah': '#ffe0e0'}
+        warna_status = {'hijau': '#e0f7e9', 'kuning': '#fff9e0', 'merah': '#ffe0e0'}
 
         st.markdown(f"""
             <div style="
                 padding: 20px;
                 border-radius: 10px;
                 text-align: center;
-                background-color: {warna_status.get(status, '#f5f5f5')};
+                background-color: {warna_status.get(status.lower(), '#f5f5f5')};
                 margin-bottom: 20px;
             ">
                 <h3 style="margin: 0;">{emoji_status.get(status, '')} Status: {status}</h3>
@@ -236,9 +201,9 @@ with st.container():
         with col3:
             st.metric("Max Hari Kering", f"{max_dry} hari")
         
-        if status == 'Hijau':
+        if status.lower() == 'hijau':
             st.success("✅ Sangat direkomendasikan untuk tanam. Kondisi curah hujan optimal untuk pertumbuhan awal padi.")
-        elif status == 'Kuning':
+        elif status.lower() == 'kuning':
             st.warning("⚠️ Direkomendasikan dengan catatan. Perhatikan ketersediaan air dan pastikan irigasi tambahan jika diperlukan.")
         else:
             st.error("❌ Tidak direkomendasikan untuk tanam. Kondisi curah hujan tidak mendukung untuk pertumbuhan optimal padi.")
@@ -249,74 +214,22 @@ with st.container():
 with st.container():
     st.subheader("🌧️ Prediksi Curah Hujan Harian (Selama 3 Bulan Setelah Tanam)")
 
-    try:
-        df_prediksi_cuaca = pd.read_csv('hasil_rolling_forecast_2024_2025.csv')
-        if 'Tanggal' in df_prediksi_cuaca.columns:
-            try:
-                df_prediksi_cuaca['Tanggal'] = pd.to_datetime(df_prediksi_cuaca['Tanggal'], dayfirst=True)
-            except:
-                try:
-                    df_prediksi_cuaca['Tanggal'] = pd.to_datetime(df_prediksi_cuaca['Tanggal'], format='mixed')
-                except Exception as e:
-                    st.warning(f"Error pada format tanggal prediksi cuaca: {e}")
-                    # Gunakan pendekatan manual
-                    if df_prediksi_cuaca['Tanggal'].dtype == 'object' and '/' in df_prediksi_cuaca['Tanggal'].iloc[0]:
-                        df_prediksi_cuaca['Tanggal'] = df_prediksi_cuaca['Tanggal'].apply(
-                            lambda x: pd.to_datetime(x.split('/')[2] + '-' + x.split('/')[1] + '-' + x.split('/')[0])
-                    )
-        # Untuk keamanan, jika nama kolom berbeda
-        elif df_prediksi_cuaca.columns[0].lower() in ['tanggal', 'date', 'datetime']:
-            df_prediksi_cuaca = df_prediksi_cuaca.rename(columns={df_prediksi_cuaca.columns[0]: 'Tanggal'})
-            df_prediksi_cuaca['Tanggal'] = pd.to_datetime(df_prediksi_cuaca['Tanggal'])
-        
-        # Ubah nama kolom curah hujan jika perlu
-        rainfall_col = 'Rainfall'
-        for col in df_prediksi_cuaca.columns:
-            if 'rain' in col.lower() or 'hujan' in col.lower() or 'curah' in col.lower():
-                rainfall_col = col
-                break
-        
-        df_90hari = df_prediksi_cuaca[
-            (df_prediksi_cuaca['Tanggal'] >= pd.to_datetime(pilih_tanggal)) &
-            (df_prediksi_cuaca['Tanggal'] <= pd.to_datetime(pilih_tanggal) + pd.Timedelta(days=90))
-        ]
+    df_prediksi_cuaca = pd.read_csv('hasil_prediksi_jangka_panjang.csv')
+    df_prediksi_cuaca['Tanggal'] = pd.to_datetime(df_prediksi_cuaca['Tanggal'])
 
-        if not df_90hari.empty:
-            fig_hujan = go.Figure()
-            fig_hujan.add_trace(go.Scatter(
-                x=df_90hari['Tanggal'],
-                y=df_90hari[rainfall_col],
-                mode='lines+markers',
-                name='Curah Hujan (mm)'
-            ))
-            fig_hujan.update_layout(
-                xaxis_title='Tanggal',
-                yaxis_title='Curah Hujan (mm)',
-                height=400
-            )
-            st.plotly_chart(fig_hujan, use_container_width=True)
-        else:
-            st.info("Belum tersedia data prediksi cuaca untuk periode ini.")
-    except Exception as e:
-        st.error(f"Error saat memuat data prediksi cuaca: {e}")
-        st.info("Menggunakan data sintetis untuk demonstrasi")
-        
-        # Buat data sintetis jika file tidak ada
-        dates = pd.date_range(start=pilih_tanggal, periods=91)
-        rainfall = np.random.normal(loc=10, scale=5, size=91)  # Mean 10mm, std 5mm
-        rainfall = np.abs(rainfall)  # Memastikan tidak ada nilai negatif
-        
-        df_sintetis = pd.DataFrame({
-            'Tanggal': dates,
-            'Rainfall': rainfall
-        })
-        
+    df_90hari = df_prediksi_cuaca[
+        (df_prediksi_cuaca['Tanggal'] >= pd.to_datetime(pilih_tanggal)) &
+        (df_prediksi_cuaca['Tanggal'] <= pd.to_datetime(pilih_tanggal) + pd.Timedelta(days=90))
+    ]
+
+    if not df_90hari.empty:
+        import plotly.graph_objects as go
         fig_hujan = go.Figure()
         fig_hujan.add_trace(go.Scatter(
-            x=df_sintetis['Tanggal'],
-            y=df_sintetis['Rainfall'],
+            x=df_90hari['Tanggal'],
+            y=df_90hari['Rainfall'],
             mode='lines+markers',
-            name='Curah Hujan (mm) - Data Sintetis'
+            name='Curah Hujan (mm)'
         ))
         fig_hujan.update_layout(
             xaxis_title='Tanggal',
@@ -324,6 +237,8 @@ with st.container():
             height=400
         )
         st.plotly_chart(fig_hujan, use_container_width=True)
+    else:
+        st.info("Belum tersedia data prediksi cuaca untuk periode ini.")
 
 # --- Prediksi Harga Beras ---
 with st.container():
@@ -345,44 +260,41 @@ with st.container():
 with st.container():
     st.subheader("🐛 Informasi Serangan Hama")
     
-    if not data_hama.empty:
-        tab1, tab2 = st.tabs(["Tabel Serangan Hama", "Grafik Serangan Hama"])
+    tab1, tab2 = st.tabs(["Tabel Serangan Hama", "Grafik Serangan Hama"])
+    
+    with tab1:
+        tahun_list = sorted(data_hama['Tahun'].unique(), reverse=True)
         
-        with tab1:
-            tahun_list = sorted(data_hama['Tahun'].unique(), reverse=True)
-            
-            for tahun in tahun_list:
-                st.markdown(f"### 📅 Musim Tanam {tahun}")
-                data_per_tahun = data_hama[data_hama['Tahun'] == tahun][['Jenis hama', 'Luas serangan hama (HA)']]
-                data_per_tahun = data_per_tahun.sort_values(by='Luas serangan hama (HA)', ascending=False)
-                st.dataframe(data_per_tahun, use_container_width=True, hide_index=True)
+        for tahun in tahun_list:
+            st.markdown(f"### 📅 Musim Tanam {tahun}")
+            data_per_tahun = data_hama[data_hama['Tahun'] == tahun][['Jenis hama', 'Luas serangan hama (HA)']]
+            data_per_tahun = data_per_tahun.sort_values(by='Luas serangan hama (HA)', ascending=False)
+            st.dataframe(data_per_tahun, use_container_width=True, hide_index=True)
+    
+    with tab2:
+        fig = px.bar(
+            data_hama, 
+            x='Jenis hama', 
+            y='Luas serangan hama (HA)', 
+            color='Tahun',
+            title='Luas Serangan Hama per Jenis',
+            barmode='group',
+            height=500
+        )
+        st.plotly_chart(fig, use_container_width=True)
         
-        with tab2:
-            fig = px.bar(
-                data_hama, 
-                x='Jenis hama', 
-                y='Luas serangan hama (HA)', 
-                color='Tahun',
-                title='Luas Serangan Hama per Jenis',
-                barmode='group',
-                height=500
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-            st.subheader("Total Serangan Hama per Tahun")
-            total_per_tahun = data_hama.groupby('Tahun')['Luas serangan hama (HA)'].sum().reset_index()
-            
-            fig_total = px.bar(
-                total_per_tahun,
-                x='Tahun',
-                y='Luas serangan hama (HA)',
-                title='Total Luas Serangan Hama per Tahun',
-                color='Tahun',
-                height=400
-            )
-            st.plotly_chart(fig_total, use_container_width=True)
-    else:
-        st.warning("Data hama tidak tersedia.")
+        st.subheader("Total Serangan Hama per Tahun")
+        total_per_tahun = data_hama.groupby('Tahun')['Luas serangan hama (HA)'].sum().reset_index()
+        
+        fig_total = px.bar(
+            total_per_tahun,
+            x='Tahun',
+            y='Luas serangan hama (HA)',
+            title='Total Luas Serangan Hama per Tahun',
+            color='Tahun',
+            height=400
+        )
+        st.plotly_chart(fig_total, use_container_width=True)
 
 # --- Info untuk petani (accordion) ---
 with st.expander("ℹ️ Informasi Tambahan untuk Petani"):
@@ -436,6 +348,10 @@ with st.expander("ℹ️ Informasi Tambahan untuk Petani"):
     - **Data Serangan Hama:** Memberikan informasi tentang pola serangan hama berdasarkan data historis
     
     Semua informasi ini bertujuan membantu petani mengoptimalkan waktu tanam untuk meningkatkan hasil produksi padi.
+    
+    ### Batasan Masalah
+    
+    Sistem ini dirancang untuk varietas padi dengan masa tanam sekitar 3 bulan, khususnya varietas Inpadi yang umum ditanam di Sumatera Utara.
     """)
 
 # --- Footer ---
